@@ -10,6 +10,11 @@
 #include "MQTT.h"
 #include "GitOTA.h"
 
+// --- Ajout bouton physique ---
+#define BUTTON_PIN 14  // Choisis une GPIO libre (évite celles utilisées par le CC1101)
+#define DEBOUNCE_MS 200
+unsigned long lastPress = 0;
+
 ConfigSettings settings;
 Web webServer;
 SocketEmitter sockEmit;
@@ -39,6 +44,9 @@ void setup() {
   //git.checkForUpdate();
   esp_task_wdt_init(7, true); //enable panic so ESP32 restarts
   esp_task_wdt_add(NULL); //add current thread to WDT watch
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  Serial.println("Bouton physique initialisé sur GPIO 14");
 
 }
 
@@ -82,5 +90,18 @@ void loop() {
     net.end();
     ESP.restart();
   }
+  
+// --- Lecture du bouton physique ---
+  if (digitalRead(BUTTON_PIN) == LOW && millis() - lastPress > DEBOUNCE_MS) {
+    lastPress = millis();
+
+    // Récupère l'appareil Somfy par son nom
+    SomfyShade* shade = SomfyRemote::getShadeByName("Portail Voiture");  // ← remplace "Portail" par le nom exact
+    if (shade != nullptr) {
+      shade->sendCommand(My);  // ou Up / Down selon la commande voulue
+      Serial.println("Commande envoyée à 'Portail Voiture' via bouton physique !");
+    } else {
+      Serial.println("⚠️  Appareil 'Portail Voiture' introuvable !");
+    }
   esp_task_wdt_reset();
 }
